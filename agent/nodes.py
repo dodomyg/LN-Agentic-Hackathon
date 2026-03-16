@@ -340,7 +340,7 @@ async def human_decision_node(state: NegotiationState) -> Dict[str, Any]:
         logger.info(f"RFQ {state['rfq_id']} BOOKED: Winner is {best_name} at ₹{final_price}")
         
         # Save the final outcome to the database (only 1 winner permitted)
-        await save_outcome(state['rfq_id'], state['recommendation'], state['benchmark_price'])
+        await save_outcome(state['rfq_id'], state['recommendation'], state['benchmark_price'], rfq_meta=state.get('rfq', {}))
         
         logs.append(f"RFQ closed. Winner: {best_name} at ₹{final_price}.")
     elif decision == "reject":

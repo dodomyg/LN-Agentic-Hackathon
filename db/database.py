@@ -73,12 +73,16 @@ async def save_quote(rfq_id: str, lsp_id: str, round_num: int, quote: float, cou
     data.append(quote_entry)
     _write_json(QUOTES_FILE, data)
 
-async def save_outcome(rfq_id: str, recommendation: dict, benchmark: float, max_budget: float = 0):
+async def save_outcome(rfq_id: str, recommendation: dict, benchmark: float, max_budget: float = 0, rfq_meta: dict = {}):
     """Save final negotiation outcome to OUTCOMES_FILE."""
     data = _read_json(OUTCOMES_FILE)
     
     outcome_entry = {
         "rfq_id": rfq_id,
+        "origin": rfq_meta.get("origin_name_cleaned") or rfq_meta.get("origin"),
+        "destination": rfq_meta.get("destination_name_cleaned") or rfq_meta.get("destination"),
+        "truck_type": rfq_meta.get("truck_type"),
+        "capacity": rfq_meta.get("capacity"),
         "winning_lsp_id": recommendation.get("best_lsp_id"),
         "winning_lsp_name": recommendation.get("best_lsp_name", recommendation.get("best_lsp_id")),
         "final_price": recommendation.get("final_price"),

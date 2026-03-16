@@ -56,16 +56,17 @@ CORE PHILOSOPHY:
 
 NEGOTIATION TACTICS (AI MODE):
 - If Quote is BELOW benchmark → ACCEPT immediately.
-- If Quote is ABOVE benchmark or budget → COUNTER.
-- CONCESSION LOGIC (MIDDLE GROUND): If an LSP shows significant price movement (drops their quote by >5% or >₹10,000 in a single round), you MUST acknowledge this by providing a counter-offer that meets them partway (a "handshake"). Do NOT stick rigidly to the budget wall if it breaks the negotiation session.
-- Counter Formula: benchmark + (quote - benchmark) * 0.12. (Vary the multiplier between 0.10 and 0.13 based on the LSP's commitment and movement to ensure fairness for the client and budget protection).
-- NEVER counter higher than the LSP's latest quote.
+- If Quote is ABOVE benchmark or budget → COUNTER with a strategic offer.
+- REALISTIC CONCESSIONS: You are the BUYER. You want to pay as little as possible but need to secure the vehicle. 
+- If an LSP shows significant movement (drops their price), acknowledge it by slightly INCREASING your counter-offer to meet them partway. 
+- If an LSP is STUBBORN (minimal or no movement), HOLD your previous counter-offer or increase it by a negligible amount (0.5-1%) to show you are still at the table.
+- Do NOT use fixed mathematical formulas. Instead, evaluate the "gap" and the LSP's "willingness" to find a realistic middle ground.
+- BUDGET DISCIPLINE: If you are already above the Manufacturer Budget, your concessions must be extremely small.
 
 JUSTIFICATION STYLE:
-- Professional, analytical, and data-driven.
-- Acknowledge price movement and explain the logic of the counter-offers.
-- You MAY use percentages (e.g., "12% reduction") to quantify changes.
-- NEVER display mathematical formulas or the logic of your calculations (e.g., "benchmark + gap * multiplier").
+- Professional, analytical, and persuasive.
+- Acknowledge price movement and explain why your counter is fair given the market conditions and their service profile.
+- NEVER mention formulas, multipliers, or "concession percentages" to the LSP.
 """
 
 
@@ -119,11 +120,11 @@ class GeminiNegotiator:
         Decide: ACCEPT, COUNTER, or DROP for this LSP.
         
         CRITICAL NEGOTIATION RULES: 
-        1. CONCESSION REACTION: If the history shows the LSP just made a significant price drop (check last 2 quotes), you should REWARD them by meeting them partway (use a 10-13% multiplier on the gap between benchmark and quote). Do not just counter at the budget ceiling again, but remain conservative to protect the client's budget.
-        2. ROUND 0 DISCIPLINE: On the first quote (Round 0), you should almost always COUNTER if the price is > Budget/Benchmark.
-        3. Reference their 'Lane Experience' ({'Verified Experience on Corridor' if has_lane_exp else 'First time on this Corridor'}) in your justification.
-        4. If you COUNTER, your counter_price MUST be LOWER than ₹{last_quote:,.2f}.
-        5. If an LSP is significantly above budget and has shown no price movement for 2 rounds, you should DROP them.
+        1. CONCESSION DYNAMICS: As the buyer, your goal is to bridge the gap. If the LSP has just dropped their price significantly (compare their current quote to their previous one in the history), you should encourage them by INCREASING your counter-offer (concession). If they haven't moved much, HOLD your previous counter or increase it by a tiny fraction.
+        2. ROUND 0 STRATEGY: Ensure your initial counter is aggressive but fair (usually 10-15% below the benchmark or slightly below budget).
+        3. REALISM: Do not behave predictably like a calculator. Use the history to judge their desperation or confidence.
+        4. Reference their 'Lane Experience' ({'Verified Experience on Corridor' if has_lane_exp else 'First time on this Corridor'}) in your justification.
+        5. If you COUNTER, your counter_price MUST be HIGHER or EQUAL to your previous counter in the history, but ALWAYS LOWER than their current quote (₹{last_quote:,.2f}).
         """
         
         if force_better_deal:
@@ -208,41 +209,42 @@ class GeminiNegotiator:
 
         Focus on:
         1. Trade-off: Price vs Reliability vs Lane Experience.
-        2. Negotiation Dynamics: Explain how the final price was reached. Acknowledge any significant price reductions from the LSP and how the agent adjusted its counter-offers in response to find a viable middle ground.
-        3. Budget Alignment: Clear comparison against the manufacturer budget.
-        4. Lane Specificity: Does the winner have proven operating experience on {lane}?
-        5. Why not other LSPs? (Specifically: Low Rating, High Price, or lack of scale).
+        2. LSP ENGAGEMENT BATTLEBOARD: Provide a clear ranking and specific justification for EVERY LSP involved in the negotiation. 
+        3. HIGHLIGHTING: Explicitly call out the "RECOMMENDED" partner in the analysis text with bold formatting.
+        4. Negotiation Dynamics: Explain how the final price was reached. Acknowledge any significant price reductions from the LSP and how the agent adjusted its counter-offers in response to find a viable middle ground.
+        5. Budget Alignment: Clear comparison against the manufacturer budget.
+        6. Lane Specificity: Does the winner have proven operating experience on {lane}?
+        7. Why not other LSPs? (Specifically: Low Rating, High Price, or lack of scale).
         
         DO NOT use any mathematical formulas or show your calculation logic. You may use percentages and round numbers to support your analysis.
+        DO NOT use #### headers in your response; stick to plain text or bold labels for internal structure.
 
         Keep it sharp, bold, and DECISIVE.
         """
 
         try:
             res = await self.recommendation_chain.ainvoke(prompt)
-            budget_status = ""
-            if budget > 0:
-                budget_status = "- **Budget Status:** ✅ UNDER BUDGET" if res.final_price <= budget else "- **Budget Status:** ⚠️ OVER BUDGET"
-
             summary = f"""
-🚀 **NEGOTIATION COMPLETED**
+# NEGOTIATION STRATEGY DOSSIER
 
-🥇 **RECOMMENDED PARTNER: {res.best_lsp_name}**
 {res.analysis_why}
 
-💰 **FINANCIALS**
-- **Win Price:** ₹{res.final_price:,.0f}
-- **Benchmark:** ₹{state['benchmark_price']:,.0f}
-{budget_status}
-- **Savings:** {res.savings_pct}% vs Benchmark
+### 📊 Financial Dashboard
+| Category | Details |
+| :--- | :--- |
+| **Final Proposed Rate** | ₹{res.final_price:,.0f} |
+| **Market Benchmark** | ₹{state['benchmark_price']:,.0f} |
+| **Total Efficiency Gain** | {res.savings_pct}% |
+| **Budget Alignment** | {"✅ UNDER BUDGET" if budget > 0 and res.final_price <= budget else "⚠️ ABOVE BUDGET" if budget > 0 else "N/A"} |
 
-🛡️ **STRATEGIC FIT**
+### 🛡️ Strategic Justification
 {res.strategic_fit}
 
-📋 **COMPETITIVE LANDSCAPE**
+### 📋 Carrier Context & Comparison
 {res.other_lsp_analysis}
 
-🎯 **CONFIDENCE:** {res.confidence_level}
+---
+**AI Confidence Score:** `{res.confidence_level}` | **Status:** `Negotiation Refined`
             """.strip()
             return {"summary": summary, "best_id": res.best_lsp_id}
         except Exception as e:

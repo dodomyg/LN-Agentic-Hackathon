@@ -377,11 +377,12 @@ async def update_accumulator_logic(rfq_id: str):
     )
     
     # Check if ANYONE has accepted (critical for Scenario A surfacing)
-    anybody_accepted = any(dec.get("decision") == "ACCEPT_BY_TRANSPORTER" for dec in state["decisions"].values())
+    anybody_accepted = any(dec.get("decision") in ("ACCEPT_BY_TRANSPORTER", "ACCEPT") for dec in state["decisions"].values())
     
-    # We trigger the final recommendation if ALL are terminal OR if AT LEAST one has accepted.
-    if not (all_terminal or anybody_accepted):
-        return # Still in flight
+    # Trigger the recommendation if we have valid rates to analyze.
+    # This ensures the "Dossier" is available as soon as the first AI decision is made.
+    if not valid_rates:
+        return
 
     # 3. Standard Recommendation Logic
     rec_result = await gemini_negotiator.generate_final_recommendation(state_for_llm)
@@ -430,7 +431,8 @@ async def update_accumulator_logic(rfq_id: str):
 
         # Transition status to pending_human_verdict if terminal or acceptance occurred
         if state["status"] not in ("booked", "cancelled"):
-            state["status"] = "pending_human_verdict"
+            if all_terminal or anybody_accepted:
+                state["status"] = "pending_human_verdict"
 
         # Handle Scenario B Completion (All LSPs either DROP, ACCEPT, or EXHAUSTED)
         if state["negotiation_mode"] == "ai":
@@ -444,7 +446,7 @@ async def update_accumulator_logic(rfq_id: str):
                 if state.get("auto_accept", False) and best_id:
                     state["status"] = "booked"
                     state["messages_log"].append(f"🤖 AUTO-BOOKED: RFQ directly awarded to {best_id} at Rs {state['rates'].get(best_id, 0):,.0f}")
-                    run_in_background(save_outcome(rfq_id, state["recommendation"], state["benchmark_price"], state.get("max_budget", 0)))
+                    run_in_background(save_outcome(rfq_id, state["recommendation"], state["benchmark_price"], state.get("max_budget", 0), state["rfq"]))
                 else:
                     state["status"] = "pending_human_verdict"
                     state["messages_log"].append("🎯 AI has completed negotiation (Rounds Exhausted). Final Recommendation Ready.")
@@ -508,13 +510,14 @@ async def process_human_decision(rfq_id: str, decision: str, lsp_id: Optional[st
         if decision == "accept":
             # If a specific LSP was chosen by the human, override the recommendation
             if lsp_id:
-                # Update recommendation to reflect manual choice
+                # Update recommendation to reflect manual choice but preserve the AI's summary analysis
+                prev_summary = state.get("recommendation", {}).get("summary", "Manual selection recorded.")
                 state["recommendation"] = {
                     "best_lsp_id": lsp_id,
                     "best_lsp_name": state["lsp_profiles"].get(lsp_id, {}).get("transporter_name", lsp_id),
                     "final_price": state["rates"].get(lsp_id, 0),
                     "benchmark": state.get("benchmark_price", 0),
-                    "summary": f"Manual selection by procurement officer.",
+                    "summary": prev_summary,
                     "total_rounds": max(1, len(state["history"].get(lsp_id, []))),
                     "savings_pct": round(((state.get("benchmark_price", 0) - state["rates"].get(lsp_id, 0)) / state.get("benchmark_price", 1)) * 100, 1)
                 }
@@ -526,33 +529,27 @@ async def process_human_decision(rfq_id: str, decision: str, lsp_id: Optional[st
             winner_id = state["recommendation"]["best_lsp_id"]
             state["messages_log"].append(f"✅ RFQ Booked with {winner_id} (Manual Selection)" if lsp_id else f"✅ RFQ Booked with {winner_id}")
             save_negotiation(rfq_id, state)
-            await save_outcome(rfq_id, state["recommendation"], state["benchmark_price"], state.get("max_budget", 0))
+            await save_outcome(rfq_id, state["recommendation"], state["benchmark_price"], state.get("max_budget", 0), state["rfq"])
             return {"status": "booked"}
         
-        elif decision == "push":
-            state["status"] = "pending_manual_counter"
-            state["messages_log"].append("🔄 Client requested an additional manual negotiation round.")
-            save_negotiation(rfq_id, state)
-            await manager.broadcast_to_rfq(rfq_id, {"type": "manual_push", "status": "pending_manual_counter"})
-            return {"status": "pending_manual_counter"}
-            
         elif decision == "reject":
             state["status"] = "cancelled"
             state["messages_log"].append("❌ RFQ Cancelled by client.")
             save_negotiation(rfq_id, state)
             return {"status": "cancelled"}
-        
+
         elif decision == "push":
             state["status"] = "negotiation_in_progress"
-            # Clear previous terminal decisions to allow re-negotiation in UI
+            # Clear previous terminal decisions and recommendation to ensure a fresh board
             state["decisions"] = {} 
+            state["recommendation"] = None
             
             # Reset the bid statuses in the transporter_list so the UI doesn't look 'finished'
             for t in state["rfq"].get("transporter_list", []):
                 if t.get("rate_list"):
-                    last_rate = t["rate_list"][-1]
-                    if last_rate.get("bid_status") in ("negotiated", "rejected"):
-                        last_rate["bid_status"] = "pending"
+                    for rate_entry in t["rate_list"]:
+                        if rate_entry.get("bid_status") in ("negotiated", "rejected", "accepted", "counter offer"):
+                            rate_entry["bid_status"] = "pending"
 
             state["messages_log"].append("🔄 Client requested additional negotiation round. Re-entering live negotiation.")
             save_negotiation(rfq_id, state)
