@@ -77,7 +77,7 @@ class GeminiNegotiator:
             logger.warning("Neither GOOGLE_API_KEY nor GEMINI_API_KEY found in environment.")
         
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
+            model="gemini-2.5-flash",
             google_api_key=self.api_key,
             temperature=0.1
         )
