@@ -12,7 +12,7 @@ load_dotenv()
 
 def get_location_suggestions(query: str) -> Optional[Dict[str, Any]]:
     """Clean location using Lorri's autocomplete API."""
-    url = "https://production.lorri.in/api/apiuser/autocomplete"
+    url = "https://prod.lorri.in/api/apiuser/autocomplete"
     params = {
         "suggest": query,
         "limit": 1,

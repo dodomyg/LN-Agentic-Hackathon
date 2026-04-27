@@ -192,7 +192,7 @@ async def get_market_insights():
 async def autocomplete_proxy(query: str):
     """Proxy for Lorri's autocomplete API."""
     import requests
-    url = "https://production.lorri.in/api/apiuser/autocomplete"
+    url = "https://prod.lorri.in/api/apiuser/autocomplete"
     params = {
         "suggest": query,
         "limit": 5,
