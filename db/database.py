@@ -3,7 +3,14 @@ import os
 from datetime import datetime
 from typing import Optional, List
 
-DATA_DIR = "data/storage"
+# Check if we are running on Vercel
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+
+if IS_VERCEL:
+    DATA_DIR = "/tmp/data/storage"
+else:
+    DATA_DIR = "data/storage"
+
 RFQS_FILE = os.path.join(DATA_DIR, "rfqs.json")
 QUOTES_FILE = os.path.join(DATA_DIR, "quotes.json")
 OUTCOMES_FILE = os.path.join(DATA_DIR, "outcomes.json")

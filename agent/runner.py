@@ -24,7 +24,9 @@ from collections import defaultdict
 
 logger = logging.getLogger(__name__)
 
-NEGOTIATIONS_FILE = "data/storage/negotiations.json"
+# Check if we are running on Vercel
+IS_VERCEL = os.environ.get("VERCEL") == "1"
+NEGOTIATIONS_FILE = os.path.join("/tmp", "data/storage/negotiations.json") if IS_VERCEL else "data/storage/negotiations.json"
 RFQ_LOCKS = defaultdict(asyncio.Lock)
 
 def _load_all() -> Dict[str, Any]:
