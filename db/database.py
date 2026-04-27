@@ -14,6 +14,10 @@ else:
 RFQS_FILE = os.path.join(DATA_DIR, "rfqs.json")
 QUOTES_FILE = os.path.join(DATA_DIR, "quotes.json")
 OUTCOMES_FILE = os.path.join(DATA_DIR, "outcomes.json")
+NEGOTIATIONS_FILE = os.path.join(DATA_DIR, "negotiations.json")
+
+# This file is read-only and included in the git repo
+LSP_PROFILES_FILE = "data/lsp_profiles.json"
 
 async def init_db():
     """Ensure storage directory and JSON files exist."""

@@ -17,7 +17,7 @@ from typing import Dict, Any, List, Optional
 from logic.benchmark import predict_freight_rate
 from llm.gemini_client import gemini_negotiator
 from logic.scoring import compute_scores
-from db.database import save_rfq, save_quote, save_outcome
+from db.database import save_rfq, save_quote, save_outcome, NEGOTIATIONS_FILE, LSP_PROFILES_FILE
 from websocket_manager import manager
 
 from collections import defaultdict
@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 
 # Check if we are running on Vercel
 IS_VERCEL = os.environ.get("VERCEL") == "1"
-NEGOTIATIONS_FILE = os.path.join("/tmp", "data/storage/negotiations.json") if IS_VERCEL else "data/storage/negotiations.json"
 RFQ_LOCKS = defaultdict(asyncio.Lock)
 
 def _load_all() -> Dict[str, Any]:
@@ -75,7 +74,7 @@ async def initialize_rfq(rfq_id: str, rfq_data: dict) -> Dict[str, Any]:
     rfq["destination_name_cleaned"] = rfq["destination"].get("location_name", "Unknown")
 
     try:
-        with open("data/lsp_profiles.json", "r") as f:
+        with open(LSP_PROFILES_FILE, "r") as f:
             profiles = json.load(f)
     except Exception:
         profiles = {}

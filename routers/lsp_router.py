@@ -5,8 +5,7 @@ from typing import List, Dict, Any
 
 router = APIRouter(prefix="/api/lsps", tags=["LSPs"])
 
-LSP_PROFILES_FILE = "data/lsp_profiles.json"
-NEGOTIATIONS_FILE = "data/storage/negotiations.json"
+from db.database import LSP_PROFILES_FILE, NEGOTIATIONS_FILE
 
 @router.get("/")
 async def list_lsps():
@@ -29,10 +28,11 @@ def read_json(path):
 
 @router.get("/debug/data")
 def get_all_data():
+    from db.database import RFQS_FILE
     return {
-        "rfqs": read_json("data/storage/rfqs.json"),
-        "negotiations": read_json("data/storage/negotiations.json"),
-        "lsp_profiles": read_json("data/lsp_profiles.json")
+        "rfqs": read_json(RFQS_FILE),
+        "negotiations": read_json(NEGOTIATIONS_FILE),
+        "lsp_profiles": read_json(LSP_PROFILES_FILE)
     }
 
 @router.get("/{lsp_id}/rfqs")
